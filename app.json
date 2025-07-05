@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "dns-app",
-    "slug": "dns-app",
+    "name": "DNS",
+    "slug": "dns",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,10 +20,22 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.sid8925.dnsapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-router"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2c740e76-2031-4d54-99d7-4d83de567b91"
+      },
+      "router": {}
+    },
+    "owner": "amazing.web.design"
   }
 }
