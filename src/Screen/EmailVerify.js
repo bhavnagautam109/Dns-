@@ -1,5 +1,5 @@
 
-import { useCallback, useState } from "react"
+import { useState } from "react"
 import {
   View,
   Text,
@@ -13,13 +13,11 @@ import {
   ScrollView,
   StatusBar,
   Image,
-  BackHandler,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import axios from "axios"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import Toast from "react-native-toast-message"
-import { useFocusEffect } from "@react-navigation/native"
 
 const COLORS = {
   primary: "#1D2A57",
@@ -31,13 +29,8 @@ const COLORS = {
   border: "#E5E7EB",
 }
 
-export default function LoginScreen({ navigation }) {
-  const [isLogin, setIsLogin] = useState(true)
+export default function EmailVerify({ navigation }) {
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [name, setName] = useState("")
-  const [mobile, setMobile] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
 
@@ -45,15 +38,13 @@ export default function LoginScreen({ navigation }) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-console.log(process.env.EXPO_PUBLIC_API_URL)
+
 const handleSubmit = async () => {
-  if (!email || !password || (!isLogin && (!name || !mobile))) {
+  if (!email ) {
     Toast.show({
       type: 'error',
       text1: 'Missing Fields',
-      text2: isLogin
-        ? 'Email and password are required.'
-        : 'All fields are required for sign up.',
+      text2: 'Email  are required.'
     });
     return;
   }
@@ -69,30 +60,26 @@ const handleSubmit = async () => {
 
   setLoading(true);
 
-  if (isLogin) {
+
     // LOGIN
     const options = {
       method: 'POST',
-      url: `${process.env.EXPO_PUBLIC_API_URL}/loginUser`,
-      data: { email, password },
+      url: `${process.env.EXPO_PUBLIC_API_URL}/forget_password `,
+      data: { email },
     };
 
     try {
       const response = await axios.request(options);
-      if (response.data.status === 1) {
-
-        await AsyncStorage.setItem('token', response.data.data.token.token);
-                await AsyncStorage.setItem('userId', response.data.data.userDetail.userid.toString());
-
-        Toast.show({ type: 'success', text1: response.data.msg});
+      console.log(response.data)
+      if (response.data.status == true) {
+        Toast.show({ type: 'success', text1: response.data.message});
         setTimeout(() => {
           setLoading(false);
-          navigation.navigate('Main');
+    navigation.navigate("OtpScreen",{email:email})
         }, 1500);
       } else {
-        Toast.show({ type: 'error', text1: response.data.title, text2: 'Please try again.' });
+        Toast.show({ type: 'error', text1: response.data.msg});
         setEmail('');
-        setPassword('');
         setLoading(false);
       }
     } catch (error) {
@@ -103,73 +90,8 @@ const handleSubmit = async () => {
       });
       setLoading(false);
     }
-  } else {
-    // SIGN UP
-    const options = {
-      method: 'POST',
-      url: `${process.env.EXPO_PUBLIC_API_URL}/registerUser`, // <-- adjust if needed
-      data: {
-       fname: name,
-        email,
-        password,
-        mobile,
-      },
-    };
-
-    try {
-      const response = await axios.request(options);
-      console.log(response.data,"---->hhhh")
-      if (response.data.status === 1) {
-        Toast.show({
-          type: 'success',
-          text1: response?.data?.msg,
-        });
-        // Reset signup form and switch to login
-        setIsLogin(true);
-        setName('');
-        setMobile('');
-        setEmail('');
-        setPassword('');
-      } else {
-        const msg = response?.data?.msg;
-const firstKey = msg && Object.keys(msg)[0];
-const firstMessage = firstKey && Array.isArray(msg[firstKey]) ? msg[firstKey][0] : null;
-
-        Toast.show({
-          type: 'error',
-          text1: firstMessage|| 'Something went wrong.',
-        });
-      }
-    } catch (error) {
-      Toast.show({
-        type: 'error',
-        text2: error?.response?.data?.msg || 'Could not register account.',
-      });
-    } finally {
-      setLoading(false);
-    }
   }
-};
 
-  useFocusEffect(
-  useCallback(() => {
-   const onBackPress = () => {
-  Alert.alert("Exit App", "Do you want to exit?", [
-    { text: "Cancel", style: "cancel" },
-    { text: "Yes", onPress: () => BackHandler.exitApp() }
-  ]);
-  return true;
-};
-
-
-const backHandler = BackHandler.addEventListener(
-  'hardwareBackPress',
-  onBackPress
-);
-
-return () => backHandler.remove(); // ✅ Correct cleanup
-  }, [])
-);
 
 
   return (
@@ -188,36 +110,10 @@ return () => backHandler.remove(); // ✅ Correct cleanup
             <Text style={styles.subtitle}>Access all vehicle-related services in one place</Text>
           </View>
 
-          <View style={styles.tabContainer}>
-            <TouchableOpacity style={[styles.tab, isLogin && styles.activeTab]} onPress={() => setIsLogin(true)}>
-              <Text style={[styles.tabText, isLogin && styles.activeTabText]}>Login</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.tab, !isLogin && styles.activeTab]} onPress={() => setIsLogin(false)}>
-              <Text style={[styles.tabText, !isLogin && styles.activeTabText]}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
+      
 
           <View style={styles.form}>
-            {!isLogin && (
-              <>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Full Name</Text>
-                  <TextInput style={styles.input} placeholder="John Doe" value={name} onChangeText={setName} />
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Mobile Number</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="+91 9876543210"
-                    value={mobile}
-                    onChangeText={setMobile}
-                    keyboardType="phone-pad"
-                  />
-                </View>
-              </>
-            )}
-
+      
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
               <TextInput
@@ -230,39 +126,18 @@ return () => backHandler.remove(); // ✅ Correct cleanup
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.passwordContainer}>
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChangeText={(text)=>setPassword(text)}
-                  secureTextEntry={!showPassword}
-                />
-                <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color={COLORS.gray} />
-                </TouchableOpacity>
-              </View>
-            </View>
+        
 
-            {isLogin && (
-              <TouchableOpacity style={styles.forgotPassword} onPress={()=>navigation.navigate("EmailVerify")}>
-                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-              </TouchableOpacity>
-            )}
-
+        
             <TouchableOpacity
               style={[styles.submitButton, loading && styles.disabledButton]}
               onPress={handleSubmit}
               disabled={loading}
             >
-              <Text style={styles.submitButtonText}>{loading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}</Text>
+              <Text style={styles.submitButtonText}>{loading ? "Please wait..." : " Verify"}</Text>
             </TouchableOpacity>
 
-            {!isLogin && (
-              <Text style={styles.termsText}>By signing up, you agree to our Terms of Service and Privacy Policy</Text>
-            )}
+          
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

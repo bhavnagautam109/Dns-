@@ -264,33 +264,6 @@ const handleSubmit = async () => {
       setLoading(false);
       return;
     }
-
-    const totalAmount = parseFloat(formData.fees);
-    const isPartialPayment = selected === "Partial";
-    const razorAmount = isPartialPayment ? totalAmount / 2 : totalAmount;
-
-    const options = {
-      description: 'Order Purchase',
-      image: 'https://dnsconcierge.awd.world/web/logo/logo.png',
-      currency: 'INR',
-      key: 'rzp_test_ErtLVEWcwYUyfw',
-      amount: razorAmount * 100, // in paise
-      name: 'DNS CONCIERGE',
-      prefill: {
-        email: formData.email || '',
-        contact: formData.mobile,
-        name: `${formData.first_name || ''} ${formData.last_name || ''}`.trim(),
-      },
-      theme: { color: '#495477' },
-    };
-
-    console.log("Razorpay options:", options);
-
-    // Launch Razorpay payment
-    const paymentData = await RazorpayCheckout.open(options);
-    console.log("Payment Success:", paymentData);
-
-    // Now prepare and send form data after successful payment
     const submitFormData = new FormData();
 
     submitFormData.append("first_name", formData.first_name);
@@ -344,9 +317,91 @@ const handleSubmit = async () => {
     console.log('API Response:', response.data);
 
     if (response.data.status == 1) {
-      navigation.navigate("StatusScreen", {
-        application: service,
+
+
+        const options = {
+      description: `Payment for ${service.name}`,
+      image: 'https://dnsconcierge.awd.world/web/logo/logo.png', // Your app logo
+      currency: 'INR',
+      key: 'rzp_test_PJNcb9UXWU5hZV', // Your Razorpay key ID
+  order_id: response.data.order.id,
+        amount: Number(response.data.order.amount),
+      name: 'DNS CONCIERGE',
+      prefill: {
+        email: formData.email,
+        contact: formData.mobile,
+        name: `${formData.first_name} ${formData.last_name}`,
+      },
+        theme: { color: "#495477" },
+    };
+
+    // STEP 4: Open Razorpay checkout
+    RazorpayCheckout.open(options)
+      .then(async (paymentData) => {
+        // STEP 5: Payment successful, call payment-success API
+        console.log('Payment Success:', paymentData);
+        
+        try {
+          const paymentSuccessData = {
+            order_id: paymentData.razorpay_order_id,
+           payment_id: paymentData.razorpay_payment_id,
+            signature: paymentData.razorpay_signature,
+               service_apply_id:response.data.order.receipt
+          };
+
+          const paymentResponse = await axios.post(
+            `${API_BASE_URL}/payment-success`,
+            paymentSuccessData,
+            {
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${userToken}`,
+              },
+              timeout: 30000,
+            }
+          );
+
+          console.log('Payment Success API Response:', paymentResponse);
+
+          if (paymentResponse.data.status==1) {
+            // Payment verification successful
+            Alert.alert(
+              "Success", 
+              "Payment completed successfully!",
+              [
+                {
+                  text: "OK",
+                  onPress: () => {
+                    navigation.navigate("StatusScreen", {
+                      application: service,
+                      paymentData: paymentData,
+                    });
+                  }
+                }
+              ]
+            );
+          } else {
+            // Payment verification failed
+            Alert.alert("Error", paymentResponse.data.message || "Payment verification failed");
+          }
+        } catch (paymentError) {
+          console.error('Payment Success API Error:', paymentError.response);
+          Alert.alert("Error", "Payment completed but verification failed. Please contact support.");
+        }
+      })
+      .catch((error) => {
+        // STEP 6: Payment failed or cancelled
+        console.log('Payment Error:', error);
+        
+        if (error.code === RazorpayCheckout.PAYMENT_CANCELLED) {
+          Alert.alert("Payment Cancelled", "You cancelled the payment");
+        } else {
+          Alert.alert("Payment Failed", `Error: ${error.description}`);
+        }
       });
+      // navigation.navigate("StatusScreen", {
+      //   application: service,
+      // });
     } else {
       Alert.alert("Error", response.data.message || "Failed to submit application");
     }

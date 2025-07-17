@@ -2,7 +2,7 @@ import axios from "axios";
 
 const options = {
   method: 'POST',
-  url: 'https://dnsconcierge.awd.world/api/loginUser',
+  url: `${process.env.EXPO_PUBLIC_API_URL}/loginUser`,
   data: {email: '', password: ''}
 };
 

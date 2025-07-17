@@ -64,7 +64,7 @@ const handlePasswordChange = async () => {
     }
 
     const response = await axios.post(
-      "https://dnsconcierge.awd.world/api/changePassword", // Use your actual API endpoint
+      `${process.env.EXPO_PUBLIC_API_URL}/changePassword`, // Use your actual API endpoint
       {
        old_password: currentPassword,
         new_password: newPassword,

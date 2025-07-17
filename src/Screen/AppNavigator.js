@@ -14,6 +14,9 @@ import ApplyScreen from "./ApplyScreen";
 import AllServicesScreen from "./AllServicesScreen";
 import Toast from "react-native-toast-message";
 import Wallet from './Wallet';
+import EmailVerify from './EmailVerify';
+import OtpScreen from './OtpScreen';
+import ResetPassword from './ResetPassword';
 
 
   const Stack = createNativeStackNavigator();
@@ -61,6 +64,18 @@ const AppNavigator = () => {
         <Stack.Screen
           name="Wallet"
           component={Wallet}
+        />
+           <Stack.Screen
+          name="EmailVerify"
+          component={EmailVerify}
+        />
+           <Stack.Screen
+          name="OtpScreen"
+          component={OtpScreen}
+        />
+            <Stack.Screen
+          name="ResetPassword"
+          component={ResetPassword}
         />
         
       </Stack.Navigator>

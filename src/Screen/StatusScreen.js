@@ -9,6 +9,10 @@ import {
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import RazorpayCheckout from "react-native-razorpay";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import Toast from "react-native-toast-message";
 
 const COLORS = {
   primary: "#1D2A57",
@@ -23,10 +27,15 @@ const COLORS = {
 };
 
 export default function StatusScreen({ route, navigation }) {
-  const { service, applicationId, application } = route?.params;
+  const { application } = route?.params;
 
-  console.log(application, "wow");
+  console.log(application)
   const [progress, setProgress] = useState(15);
+  const formatDate = (rawDate) => {
+  const date = new Date(rawDate);
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+};
+
 
   useEffect(() => {
     // Simulate progress updates
@@ -119,6 +128,98 @@ export default function StatusScreen({ route, navigation }) {
     return "checkmark";
   };
 
+  const getURl = async () => {
+    if (
+      !application?.remaining_payment ||
+      application.remaining_payment === 0
+    ) {
+      return;
+    }
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_API_URL}/remaining_payment`,
+        {
+          params: { id: application.id },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const order = response.data?.order;
+      if (!order || !order.id) {
+        throw new Error("Invalid order data from server.");
+      }
+
+      const paymentOptions = {
+        description: "Order Purchase",
+        image: "https://dnsconcierge.awd.world/web/logo/logo.png",
+        currency: "INR",
+        key: "rzp_test_PJNcb9UXWU5hZV", // Use live key in production
+        order_id: order.id,
+        amount: Number(order.amount),
+        name: "DNS CONCIERGE",
+        prefill: {
+          email: application.email || "",
+          contact: application.mobile || "",
+          name: `${application.first_name ?? ""} ${
+            application.last_name ?? ""
+          }`,
+        },
+        theme: { color: "#495477" },
+      };
+
+      console.log("Razorpay options:", paymentOptions);
+
+      const paymentData = await RazorpayCheckout.open(paymentOptions);
+      console.log("Payment Success:", paymentData);
+
+      // ✅ Call payment-success API
+      const successResponse = await axios.post(
+        `${process.env.EXPO_PUBLIC_API_URL}/payment-success`,
+        {
+          payment_id: paymentData.razorpay_payment_id,
+          order_id: paymentData.razorpay_order_id,
+          signature: paymentData.razorpay_signature,
+          service_apply_id: application.id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Payment success API response:", successResponse.data);
+
+      if (successResponse.data.status == true) {
+        Toast.show({
+          type: "success",
+          text1: successResponse.data.msg,
+          text2: "Payment Successful",
+        });
+        navigation.navigate("HomeScreen");
+      } else {
+        Toast.show({
+          type: "error",
+          text1: successResponse.data.msg || "Payment Failed",
+          text2: "Something went wrong",
+        });
+      }
+    } catch (error) {
+      console.error("Payment or API error:", error?.response || error);
+      Toast.show({
+        type: "error",
+        text1: "Payment Failed",
+        text2: "Something went wrong",
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor={COLORS.white} barStyle="dark-content" />
@@ -187,14 +288,17 @@ export default function StatusScreen({ route, navigation }) {
           <View style={styles.datesContainer}>
             <View style={styles.dateItem}>
               <Text style={styles.dateLabel}>Submitted On</Text>
-              <Text style={styles.dateValue}>{application.purchase_date}</Text>
+              <Text style={styles.dateValue}>{formatDate(application.purchase_date)}</Text>
             </View>
             <View style={styles.dateItem}>
               <Text style={styles.dateLabel}>Est. Completion</Text>
               <Text style={styles.dateValue}>
-                {new Date(
-                  Date.now() + 15 * 24 * 60 * 60 * 1000
-                ).toLocaleDateString()}
+    {
+    (() => {
+      const date = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
+      return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+    })()
+  }
               </Text>
             </View>
           </View>
@@ -218,10 +322,16 @@ export default function StatusScreen({ route, navigation }) {
             <View style={styles.tableRow}>
               <Text style={styles.cell}>Remaining Payment</Text>
               <Text style={styles.cell}>
-                ₹
-                {application.payment_type == "partial"
-                  ? application.remaining_payment
-                  : 0}
+                <Text style={{
+                  color: application.remaining_payment_status == "paid"?"green":"red",
+                  fontWeight:'bold'
+                }}>
+                  ₹
+                  { application.remaining_payment_status != "paid" 
+                    ? application.remaining_payment??0
+                    : 0}
+                </Text>
+             
               </Text>
             </View>
 
@@ -231,24 +341,28 @@ export default function StatusScreen({ route, navigation }) {
             </View>
           </View>
 
-          {application.remaining_payment != 0 && (
-            <Text
+          {application.remaining_payment_status == "pending" && application.payment_type!="full" && (
+            <TouchableOpacity
               style={{
                 marginTop: "5%",
                 backgroundColor: "#FFCB09",
                 width: "100%",
-                textAlign: "center",
                 padding: 10,
-
                 alignItems: "center",
-                alignSelf: "center",
-                fontWeight: "700",
-                fontSize: 16,
                 borderRadius: 8,
               }}
+              onPress={getURl}
             >
-              Pay ₹{application.remaining_payment}
-            </Text>
+              <Text
+                style={{
+                  fontWeight: "700",
+                  fontSize: 16,
+                  textAlign: "center",
+                }}
+              >
+                Pay ₹{application.remaining_payment}
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -521,6 +635,7 @@ const styles = StyleSheet.create({
   cell: {
     flex: 1,
     padding: 10,
+    
   },
   actionButton: {
     flexDirection: "row",

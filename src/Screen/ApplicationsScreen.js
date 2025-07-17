@@ -1,9 +1,10 @@
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, FlatList, ActivityIndicator, StatusBar } from "react-native"
 import axios from "axios"
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import { useFocusEffect } from "@react-navigation/native"
 
 
 const COLORS = {
@@ -71,38 +72,48 @@ const [completedApplications, setCompletedApplications] = useState([])
 const [rejectedApplications, setRejectedApplications] = useState([])
 const [loading, setLoading] = useState(true)
 const [error, setError] = useState(null)
-useEffect(() => {
-  const fetchApplications = async () => {
-    try {
-      setLoading(true)
+useFocusEffect(
+  useCallback(() => {
+    const fetchApplications = async () => {
+      try {
+        setLoading(true);
 
-      const token = await AsyncStorage.getItem("token") // Replace with your actual key
-      if (!token) {
-        throw new Error("No token found")
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          throw new Error("No token found");
+        }
+
+        const response = await axios.get(
+          `${process.env.EXPO_PUBLIC_API_URL}/view_service_apply`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = response.data.data.serviceApply;
+
+        setPendingApplications(
+          data.filter((app) => app.application_status == "0" || app.application_status == "2")
+        );
+        setCompletedApplications(
+          data.filter((app) => app.application_status == "1")
+        );
+        setRejectedApplications(
+          data.filter((app) => app.application_status == "3")
+        );
+      } catch (err) {
+        console.error("Error fetching applications:", err);
+        setError("Failed to load applications");
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const response = await axios.get("https://dnsconcierge.awd.world/api/view_service_apply", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      const data = response.data.data.serviceApply
-
-      setPendingApplications(data.filter(app => app.application_status == "0" || app.application_status == "2"))
-      setCompletedApplications(data.filter(app => app.application_status == "1"))
-      setRejectedApplications(data.filter(app => app.application_status == "3"))
-
-    } catch (err) {
-      console.error("Error fetching applications:", err)
-      setError("Failed to load applications")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  fetchApplications()
-}, [])
+    fetchApplications();
+  }, [])
+);
 
 
   const handleApplicationPress = (application) => {

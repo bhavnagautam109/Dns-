@@ -108,7 +108,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:'15%'}}>
         <View style={styles.serviceHeader}>
           <View style={styles.serviceIconContainer}>
             {/* <Text style={styles.serviceIcon}>{details.icon}</Text> */}
@@ -119,22 +119,26 @@ export default function ServiceDetailScreen({ route, navigation }) {
             <Text style={styles.serviceDescription}>{details.description}</Text>
           </View>
         </View>
+        {
+details?.doc_require!=null &&
 
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="document-text" size={20} color={COLORS.primary} />
-            <Text style={styles.cardTitle}>Required Documents</Text>
-          </View>
-          <Text style={styles.cardSubtitle}>Documents needed for application</Text>
-          <View style={styles.requirementsList}>
-            {/* {details?.doc_require?.map((requirement, index) => ( */}
-              <View style={styles.requirementItem}>
-                <Ionicons name="checkmark-circle" size={16} color={COLORS.green} />
-                <Text style={styles.requirementText}>{details.doc_require}</Text>
-              </View>
-            {/* ))} */}
-          </View>
-        </View>
+     <View style={styles.card}>
+  <View style={styles.cardHeader}>
+    <Ionicons name="document-text" size={20} color={COLORS.primary} />
+    <Text style={styles.cardTitle}>Required Documents</Text>
+  </View>
+  <Text style={styles.cardSubtitle}>Documents needed for application</Text>
+  <View style={styles.requirementsList}>
+    {details?.doc_require?.split(",").map((doc, index) => (
+      <View key={index} style={styles.requirementItem}>
+        <Ionicons name="checkmark-circle" size={16} color={COLORS.green} />
+        <Text style={styles.requirementText}>{doc.trim()}</Text>
+      </View>
+    ))}
+  </View>
+</View>
+
+        }
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>

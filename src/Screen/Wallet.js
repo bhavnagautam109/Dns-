@@ -14,13 +14,14 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 
 const Wallet = () => {
-  const [showBalance, setShowBalance] = useState(true);
+  const [showBalance, setShowBalance] = useState(false);
   const [data,setData]=useState([])
 
   const balance = 4287.66;
 
 useEffect(() => {
   const fetchApplications = async () => {
+    setShowBalance(false)
     try {
 
       const token = await AsyncStorage.getItem("token") // Replace with your actual key
@@ -29,7 +30,7 @@ useEffect(() => {
       }
       console.log(token,"---->token")
 
-      const response = await axios.get("https://dnsconcierge.awd.world/api/wallet_transaction", {
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/wallet_transaction`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -38,9 +39,13 @@ useEffect(() => {
       const data = response.data
      
       setData(data)
+          setShowBalance(true)
+
 
 
     } catch (err) {
+                setShowBalance(true)
+      
       console.error("Error fetching applications:", err)
       setError("Failed to load applications")
     }

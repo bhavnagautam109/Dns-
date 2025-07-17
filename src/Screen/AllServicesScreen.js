@@ -68,7 +68,7 @@ const [loading, setLoading] = useState(true)
 useEffect(() => {
   const fetchServices = async () => {
     try {
-      const response = await axios.get("https://dnsconcierge.awd.world/api/viewService")
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/viewService`)
       setAllServices(response.data.data.service) // Adjust based on API response shape
     } catch (error) {
       console.error("Failed to fetch services:", error)

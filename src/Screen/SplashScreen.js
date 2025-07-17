@@ -1,7 +1,8 @@
 
-import { useEffect, useRef } from "react"
-import { View, Text, StyleSheet, Animated, Dimensions, SafeAreaView, StatusBar, Image } from "react-native"
+import { useCallback, useEffect, useRef } from "react"
+import { View, Text, StyleSheet, Animated, Dimensions, SafeAreaView, StatusBar, Image, BackHandler, Alert } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import { useFocusEffect } from "@react-navigation/native"
 
 const { width, height } = Dimensions.get("window")
 
@@ -51,6 +52,27 @@ export default function SplashScreen({ navigation }) {
       navigation.navigate("LoginScreen")
     }
   }
+
+
+  useFocusEffect(
+  useCallback(() => {
+   const onBackPress = () => {
+  Alert.alert("Exit App", "Do you want to exit?", [
+    { text: "Cancel", style: "cancel" },
+    { text: "Yes", onPress: () => BackHandler.exitApp() }
+  ]);
+  return true;
+};
+
+
+const backHandler = BackHandler.addEventListener(
+  'hardwareBackPress',
+  onBackPress
+);
+
+return () => backHandler.remove(); // ✅ Correct cleanup
+  }, [])
+);
 
   return (
     <SafeAreaView style={styles.container}>

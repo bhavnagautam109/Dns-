@@ -1,9 +1,10 @@
-
 import { useEffect, useState } from "react"
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, TextInput, Alert, StatusBar } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, TextInput, Alert, StatusBar, Image } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import * as ImagePicker from 'expo-image-picker'
 import axios from "axios"
+import Toast from 'react-native-toast-message' // Add this import
 
 const COLORS = {
   primary: "#1D2A57",
@@ -22,96 +23,209 @@ export default function ProfileScreen({ navigation }) {
   const [email, setEmail] = useState("")
   const [mobile, setMobile] = useState("")
   const [address, setAddress] = useState("")
-  const[lname,setLName]=useState("")
+  const [lname, setLName] = useState("")
+  const [profileImage, setProfileImage] = useState(null) // Add state for profile image
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token")
+        if (!token) {
+          console.warn("No token found in storage")
+          return
+        }
 
-useEffect(() => {
-  const fetchProfile = async () => {
+        const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/viewprofile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        const data = response.data.data.viewProfile[0]
+        console.log("Profile Data:", data)
+
+        setName(data.fname || "-")
+                setProfileImage(data.avatar || "-")
+
+        setLName(data.lname || "-")
+        setMobile(data.mobile || "-")
+        setAddress(data.address || "-")
+        // If you have profile image URL from API, set it here
+        // setProfileImage(data.profileImage || null)
+
+      } catch (error) {
+        console.error("Failed to fetch profile:", error?.response?.data || error.message)
+      }
+    }
+
+    fetchProfile()
+  }, [])
+
+  const pickImage = async () => {
     try {
-      const token = await AsyncStorage.getItem("token") // Await needed
-      if (!token) {
-        console.warn("No token found in storage")
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      console.log('Permission status:', status)
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Camera roll permissions are needed to select images.')
         return
       }
 
-      const response = await axios.get("https://dnsconcierge.awd.world/api/viewprofile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Use MediaTypeOptions.Images
+        allowsEditing: true,
+        aspect: [1, 1], // Square aspect ratio for profile picture
+        quality: 0.8, // Reduce quality to optimize upload
       })
 
-      const data = response.data.data.viewProfile[0]
-      console.log("Profile Data:", data)
+      console.log('Image picker result:', result)
 
-      // Set your state here based on API response structure
-      setName(data.fname||"-")
-      setLName(data.lname|| "-")
-      setMobile(data.mobile|| "-")
-      setAddress(data.address|| "-")
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const imageUri = result.assets[0].uri
+        console.log('Selected image URI:', imageUri)
+        
+        // Set the image immediately for UI feedback
+        setProfileImage(imageUri)
+        
+        // Upload the image
+        await uploadImage(imageUri)
+      }
+    } catch (error) {
+      console.error('Error picking image:', error)
+      Alert.alert('Error', 'Failed to pick image. Please try again.')
+    }
+  }
+
+  const uploadImage = async (uri) => {
+    try {
+      const token = await AsyncStorage.getItem("token")
+      if (!token) {
+        Alert.alert("Error", "Authentication token not found")
+        return
+      }
+
+      // Replace with your actual upload endpoint
+      const apiUrl = `${process.env.EXPO_PUBLIC_API_URL}/updatePhoto`
+
+      const filename = uri.split('/').pop()
+      const match = /\.(\w+)$/.exec(filename || '')
+      const type = match ? `image/${match[1]}` : 'image/jpeg'
+
+      const formData = new FormData()
+      formData.append('photo', {
+        uri: uri,
+        name: filename || 'profile.jpg',
+        type: type,
+      } ) // TypeScript workaround
+
+      console.log('Uploading image...')
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      })
+
+      const responseText = await response.text()
+      console.log('Upload response:', responseText)
+
+      if (response.ok) {
+        try {
+          const jsonResponse = JSON.parse(responseText)
+          console.log('Upload success:', jsonResponse)
+          
+          Toast.show({
+            type: 'success',
+            text1: 'Profile image updated successfully',
+            text2: 'Your profile picture has been updated'
+          })
+        } catch (parseError) {
+          console.log('Response is not JSON, but upload seems successful')
+          Toast.show({
+            type: 'success',
+            text1: 'Profile image updated',
+            text2: 'Your profile picture has been updated'
+          })
+        }
+      } else {
+        throw new Error(`Upload failed with status: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      Alert.alert('Upload Failed', 'There was an error uploading the image. Please try again.')
+      
+      Toast.show({
+        type: 'error',
+        text1: 'Upload Failed',
+        text2: 'Failed to update profile image'
+      })
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token")
+      if (!token) {
+        Alert.alert("Error", "Authentication token not found")
+        Toast.show({
+          type: 'error',
+          text1: "Authentication token not found",
+          text2: "",
+        })
+        return
+      }
+
+      const response = await axios.post(
+        `${process.env.EXPO_PUBLIC_API_URL}/updateProfile`,
+        {
+          fname: name,
+          lname: lname,
+          mobile,
+          address,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      )
+
+      console.log(response.data, "Update")
+      setIsEditing(false)
+
+      Toast.show({
+        type: 'success',
+        text1: 'Profile updated successfully',
+        text2: "Profile updated successfully"
+      })
 
     } catch (error) {
-      console.error("Failed to fetch profile:", error?.response?.data || error.message)
+      console.error('Update error:', error)
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to Update',
+        text2: "Failed to Update"
+      })
     }
   }
-
-  fetchProfile()
-}, [])
-
-
-const handleSave = async () => {
-  try {
-    const token = await AsyncStorage.getItem("token")
-    if (!token) {
-      Alert.alert("Error", "Authentication token not found")
-         Toast.show({
-            type: 'error',
-            text1: "Authentication token not found",
-            text2:"",
-          });
-      return
-    }
-
-    const response = await axios.post(
-      "https://dnsconcierge.awd.world/api/updateProfile",
-      {
-        fname:name,
-     lname:lname,
- 
-        mobile,
-        address,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    )
-console.log(response.data,"Updata")
-   setIsEditing(false)
-   
-       Toast.show({
-      type: 'success',
-      text1: 'Profile updated successfully',
-      text2: "Profile updated successfully"
-    });
- 
-
-  } catch (error) {
-        Toast.show({
-      type: 'success',
-      text1: 'Failed to Update',
-      text2: "Failed to Update"
-    });
-  }
-}
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Logout", style: "destructive", onPress: async() => {
-        await AsyncStorage.removeItem("token")
-        navigation.navigate("LoginScreen")} },
+      { 
+        text: "Logout", 
+        style: "destructive", 
+        onPress: async () => {
+          await AsyncStorage.removeItem("token")
+          navigation.navigate("LoginScreen")
+        } 
+      },
     ])
   }
 
@@ -123,13 +237,6 @@ console.log(response.data,"Updata")
       icon: "shield-checkmark",
       onPress: () => navigation.navigate("SecurityScreen"),
     },
-    // {
-    //   id: "notifications",
-    //   title: "Notifications",
-    //   subtitle: "Preferences, alerts",
-    //   icon: "notifications",
-    //   onPress: () => navigation.navigate("NotificationScreen"),
-    // },
     {
       id: "help",
       title: "Help & Support",
@@ -141,7 +248,7 @@ console.log(response.data,"Updata")
 
   return (
     <SafeAreaView style={styles.container}>
-            <StatusBar backgroundColor={COLORS.white} barStyle="dark-content" />
+      <StatusBar backgroundColor={COLORS.white} barStyle="dark-content" />
       
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Profile</Text>
@@ -151,14 +258,17 @@ console.log(response.data,"Updata")
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>JD</Text>
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+              ) : (
+                <Image source={require('../../assets/user.png')} style={styles.avatarImage} />
+              )}
             </View>
-            {/* <TouchableOpacity style={styles.cameraButton}>
+            <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
               <Ionicons name="camera" size={16} color={COLORS.gray} />
-            </TouchableOpacity> */}
+            </TouchableOpacity>
           </View>
-          <Text style={styles.profileName}>{name}</Text>
-          {/* <Text style={styles.profileEmail}>{email}</Text> */}
+          <Text style={styles.profileName}>{name} {lname}</Text>
         </View>
 
         <View style={styles.infoCard}>
@@ -176,14 +286,10 @@ console.log(response.data,"Updata")
                   <Text style={styles.inputLabel}>First name</Text>
                   <TextInput style={styles.input} value={name} onChangeText={setName} />
                 </View>
-                    <View style={styles.inputGroup}>
+                <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Last name</Text>
                   <TextInput style={styles.input} value={lname} onChangeText={setLName} />
                 </View>
-                {/* <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>L</Text>
-                  <TextInput style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" />
-                </View> */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Mobile Number</Text>
                   <TextInput style={styles.input} value={mobile} onChangeText={setMobile} keyboardType="phone-pad" />
@@ -196,11 +302,11 @@ console.log(response.data,"Updata")
             ) : (
               <>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Full Name</Text>
+                  <Text style={styles.infoLabel}>First Name</Text>
                   <Text style={styles.infoValue}>{name}</Text>
                 </View>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>lname</Text>
+                  <Text style={styles.infoLabel}>Last Name</Text>
                   <Text style={styles.infoValue}>{lname}</Text>
                 </View>
                 <View style={styles.infoRow}>
@@ -244,7 +350,7 @@ console.log(response.data,"Updata")
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    height:'100%',
+    height: '100%',
     backgroundColor: COLORS.white,
   },
   header: {
@@ -277,6 +383,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.lightGray,
     justifyContent: "center",
     alignItems: "center",
+    overflow: 'hidden', // Important for circular images
+  },
+  avatarImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
   },
   avatarText: {
     fontSize: 32,
